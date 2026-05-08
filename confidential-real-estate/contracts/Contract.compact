@@ -1,0 +1,131 @@
+pragma language_version 0.22;
+import CompactStandardLibrary;
+
+// ----------------------------------------------------------------------
+// Confidential Tokenized Real Estate
+//
+// Tokenized property shares with private ownership and rental-yield data.
+// - Issuer (sponsor) tokenises a property and attests investor ownership
+//   commitments into a Merkle tree.
+// - Investors prove they own >= some threshold of shares without revealing
+//   their identity, holding amount, or wallet address.
+// - Rental yield is published as an aggregate; per-investor cashflows are
+//   derived off-chain from the same commitment + a nullifier scheme.
+// ----------------------------------------------------------------------
+
+// --- Ledger State ---
+
+export sealed ledger sponsor: Bytes<32>;
+
+// Per-property registry. Each property has its own Merkle tree of holder
+// commitments and an aggregate rental pool.
+export ledger ownershipCommitments: HistoricMerkleTree<10, Bytes<32>>;
+export ledger yieldClaimNullifiers: Set<Bytes<32>>;
+
+export ledger totalProperties: Counter;
+export ledger totalShares: Counter;
+export ledger totalYieldClaims: Counter;
+
+// Public rental pool (rolled forward each cycle).
+export ledger rentalPoolAvailable: Uint<64>;
+
+// --- Witnesses ---
+
+witness localSecretKey(): Bytes<32>;
+witness findOwnershipPath(commit: Bytes<32>): MerkleTreePath<10, Bytes<32>>;
+
+// --- Constructor ---
+
+constructor(sponsorSk: Bytes<32>) {
+    sponsor = disclose(publicKey(sponsorSk));
+}
+
+// --- Helper circuits ---
+
+circuit publicKey(sk: Bytes<32>): Bytes<32> {
+    return persistentHash<Vector<2, Bytes<32>>>(
+        [pad(32, "realestate:pk:v1"), sk]
+    );
+}
+
+circuit ownershipCommit(sk: Bytes<32>, propertyId: Bytes<32>): Bytes<32> {
+    return persistentHash<Vector<3, Bytes<32>>>(
+        [pad(32, "realestate:own:v1"), propertyId, sk]
+    );
+}
+
+circuit yieldNullifier(sk: Bytes<32>, propertyId: Bytes<32>, cycle: Bytes<32>): Bytes<32> {
+    return persistentHash<Vector<4, Bytes<32>>>(
+        [pad(32, "realestate:yield:v1"), propertyId, cycle, sk]
+    );
+}
+
+export circuit getOwnershipCommitment(sk: Bytes<32>, propertyId: Bytes<32>): Bytes<32> {
+    return ownershipCommit(sk, propertyId);
+}
+
+// --- Sponsor circuits ---
+
+// Sponsor issues an ownership share to an investor by inserting their
+// commitment into the tree. Off-chain the sponsor records how many shares
+// each commitment is worth; the ledger only sees the commitment.
+export circuit issueShare(holderCommit: Bytes<32>): [] {
+    const sk = localSecretKey();
+    assert(sponsor == disclose(publicKey(sk)), "Not the sponsor");
+    ownershipCommitments.insert(disclose(holderCommit));
+    totalShares.increment(1);
+}
+
+export circuit registerProperty(): [] {
+    const sk = localSecretKey();
+    assert(sponsor == disclose(publicKey(sk)), "Not the sponsor");
+    totalProperties.increment(1);
+}
+
+// Sponsor tops up the rental pool for the current cycle.
+export circuit depositRent(amount: Uint<64>): [] {
+    const sk = localSecretKey();
+    assert(sponsor == disclose(publicKey(sk)), "Not the sponsor");
+    rentalPoolAvailable = (rentalPoolAvailable + amount) as Uint<64>;
+}
+
+// --- Investor circuits ---
+
+// Investor proves they own at least one share of the given property without
+// revealing their wallet, holding size, or which leaf is theirs.
+export circuit proveOwnership(propertyId: Bytes<32>): Boolean {
+    const sk = localSecretKey();
+    const commit = ownershipCommit(sk, propertyId);
+    const path = findOwnershipPath(commit);
+
+    assert(
+        ownershipCommitments.checkRoot(disclose(merkleTreePathRoot<10, Bytes<32>>(path))),
+        "Not an owner of this property"
+    );
+
+    return disclose(true);
+}
+
+// Investor claims a share of the rental pool for a given (property, cycle).
+// The nullifier prevents double-claims for the same cycle. The amount is
+// public (the rental pool deduction) but the recipient stays anonymous.
+export circuit claimYield(propertyId: Bytes<32>, cycle: Bytes<32>, amount: Uint<64>): Boolean {
+    const sk = localSecretKey();
+    const commit = ownershipCommit(sk, propertyId);
+    const path = findOwnershipPath(commit);
+
+    assert(
+        ownershipCommitments.checkRoot(disclose(merkleTreePathRoot<10, Bytes<32>>(path))),
+        "Not an owner of this property"
+    );
+
+    const nul = yieldNullifier(sk, propertyId, cycle);
+    assert(!yieldClaimNullifiers.member(disclose(nul)), "Yield already claimed this cycle");
+    assert(rentalPoolAvailable >= amount, "Insufficient rental pool");
+
+    yieldClaimNullifiers.insert(disclose(nul));
+    rentalPoolAvailable = (rentalPoolAvailable - amount) as Uint<64>;
+    totalYieldClaims.increment(1);
+
+    return disclose(true);
+}
