@@ -1,0 +1,130 @@
+pragma language_version 0.22;
+import CompactStandardLibrary;
+
+// ----------------------------------------------------------------------
+// Confidential Dividend Distribution
+//
+// Automates dividend payouts while hiding shareholder identities.
+// - Issuer (corporate treasury) registers a class of shares and announces
+//   a dividend rate per cycle.
+// - Issuer attests each shareholder by inserting their commitment into a
+//   per-class Merkle tree.
+// - Shareholders claim dividends using a ZK proof of inclusion + a per-
+//   cycle nullifier. Payout sum is public; recipient is not.
+// ----------------------------------------------------------------------
+
+// --- Ledger State ---
+
+export sealed ledger issuer: Bytes<32>;
+
+// Each share class has its own Merkle tree of shareholder commitments.
+// (We hard-code one class for clarity; extending to multi-class is trivial
+//  with a Map.)
+export ledger shareholderCommitments: HistoricMerkleTree<10, Bytes<32>>;
+
+// Used per (shareholder, cycle) to prevent double-claims.
+export ledger dividendNullifiers: Set<Bytes<32>>;
+
+// Treasury balance available for the next round of payouts.
+export ledger dividendPool: Uint<64>;
+
+// Per-cycle, declared dividend amount per share (public).
+export ledger declaredDividend: Uint<64>;
+
+// Public roll-up.
+export ledger totalShareholders: Counter;
+export ledger totalDividendsPaid: Counter;
+
+// --- Witnesses ---
+
+witness localSecretKey(): Bytes<32>;
+witness findShareholderPath(commit: Bytes<32>): MerkleTreePath<10, Bytes<32>>;
+
+// --- Constructor ---
+
+constructor(issuerSk: Bytes<32>) {
+    issuer = disclose(publicKey(issuerSk));
+}
+
+// --- Helpers ---
+
+circuit publicKey(sk: Bytes<32>): Bytes<32> {
+    return persistentHash<Vector<2, Bytes<32>>>(
+        [pad(32, "dividend:pk:v1"), sk]
+    );
+}
+
+circuit shareholderCommit(sk: Bytes<32>, classId: Bytes<32>): Bytes<32> {
+    return persistentHash<Vector<3, Bytes<32>>>(
+        [pad(32, "dividend:sh:v1"), classId, sk]
+    );
+}
+
+circuit dividendNullifier(sk: Bytes<32>, classId: Bytes<32>, cycle: Bytes<32>): Bytes<32> {
+    return persistentHash<Vector<4, Bytes<32>>>(
+        [pad(32, "dividend:nul:v1"), classId, cycle, sk]
+    );
+}
+
+export circuit getShareholderCommitment(sk: Bytes<32>, classId: Bytes<32>): Bytes<32> {
+    return shareholderCommit(sk, classId);
+}
+
+// --- Issuer circuits ---
+
+export circuit registerShareholder(shareholderCommitArg: Bytes<32>): [] {
+    const sk = localSecretKey();
+    assert(issuer == disclose(publicKey(sk)), "Not the issuer");
+    shareholderCommitments.insert(disclose(shareholderCommitArg));
+    totalShareholders.increment(1);
+}
+
+export circuit topUpDividendPool(amount: Uint<64>): [] {
+    const sk = localSecretKey();
+    assert(issuer == disclose(publicKey(sk)), "Not the issuer");
+    dividendPool = (dividendPool + amount) as Uint<64>;
+}
+
+// Declare the per-share dividend for the upcoming cycle. Public.
+export circuit declareCycleDividend(amount: Uint<64>): [] {
+    const sk = localSecretKey();
+    assert(issuer == disclose(publicKey(sk)), "Not the issuer");
+    declaredDividend = amount;
+}
+
+// --- Shareholder circuits ---
+
+// Shareholder proves they hold the class and claims the declared dividend.
+// Nullifier prevents claiming more than once per cycle.
+export circuit claimDividend(classId: Bytes<32>, cycle: Bytes<32>): Boolean {
+    const sk = localSecretKey();
+    const commit = shareholderCommit(sk, classId);
+    const path = findShareholderPath(commit);
+
+    assert(
+        shareholderCommitments.checkRoot(disclose(merkleTreePathRoot<10, Bytes<32>>(path))),
+        "Not a registered shareholder"
+    );
+
+    const nul = dividendNullifier(sk, classId, cycle);
+    assert(!dividendNullifiers.member(disclose(nul)), "Dividend already claimed this cycle");
+    assert(dividendPool >= declaredDividend, "Insufficient dividend pool");
+
+    dividendNullifiers.insert(disclose(nul));
+    dividendPool = (dividendPool - declaredDividend) as Uint<64>;
+    totalDividendsPaid.increment(1);
+
+    return disclose(true);
+}
+
+// A shareholder can prove eligibility *without* claiming (for KYC/onboarding flows).
+export circuit proveEligibility(classId: Bytes<32>): Boolean {
+    const sk = localSecretKey();
+    const commit = shareholderCommit(sk, classId);
+    const path = findShareholderPath(commit);
+    assert(
+        shareholderCommitments.checkRoot(disclose(merkleTreePathRoot<10, Bytes<32>>(path))),
+        "Not a registered shareholder"
+    );
+    return disclose(true);
+}
