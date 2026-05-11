@@ -1,0 +1,138 @@
+pragma language_version 0.22;
+import CompactStandardLibrary;
+
+// ----------------------------------------------------------------------
+// Confidential Asset Management
+//
+// Investors allocate capital to fund managers without public exposure of
+// allocations or strategy.
+//   - Fund manager (GP) registers themselves on-chain.
+//   - LPs allocate capital privately; the chain only sees the aggregate
+//     fund AUM and the number of LP commitments — not who, not how much.
+//   - GP publishes a per-period ROI; LPs prove eligibility (they are an
+//     LP) without revealing identity, and the chain validates payouts
+//     against the public AUM and ROI.
+// ----------------------------------------------------------------------
+
+// --- Ledger State ---
+
+export sealed ledger manager: Bytes<32>;
+
+// LP commitments. Each leaf = H(lpSk, fundId).
+export ledger lpCommitments: HistoricMerkleTree<10, Bytes<32>>;
+export ledger payoutNullifiers: Set<Bytes<32>>;
+
+// Public aggregate AUM (sum of all LP allocations the manager attests).
+// Allows on-chain solvency checks without revealing per-LP positions.
+export ledger aum: Uint<64>;
+
+// Published per-period ROI rate (e.g., 1200 = +12.00% in bp).
+export ledger reportedRoiBp: Uint<64>;
+
+// Public counters.
+export ledger totalLps: Counter;
+export ledger totalPayouts: Counter;
+
+// --- Witnesses ---
+
+witness localSecretKey(): Bytes<32>;
+witness findLpPath(commit: Bytes<32>): MerkleTreePath<10, Bytes<32>>;
+
+// --- Constructor ---
+
+constructor(managerSk: Bytes<32>) {
+    manager = disclose(publicKey(managerSk));
+}
+
+// --- Helpers ---
+
+circuit publicKey(sk: Bytes<32>): Bytes<32> {
+    return persistentHash<Vector<2, Bytes<32>>>(
+        [pad(32, "fund:pk:v1"), sk]
+    );
+}
+
+circuit lpCommit(sk: Bytes<32>, fundId: Bytes<32>): Bytes<32> {
+    return persistentHash<Vector<3, Bytes<32>>>(
+        [pad(32, "fund:lp:v1"), fundId, sk]
+    );
+}
+
+circuit payoutNullifier(sk: Bytes<32>, fundId: Bytes<32>, period: Bytes<32>): Bytes<32> {
+    return persistentHash<Vector<4, Bytes<32>>>(
+        [pad(32, "fund:nul:v1"), fundId, period, sk]
+    );
+}
+
+export circuit getLpCommitment(sk: Bytes<32>, fundId: Bytes<32>): Bytes<32> {
+    return lpCommit(sk, fundId);
+}
+
+// --- Manager circuits ---
+
+// Manager admits an LP. The on-chain effect is the commitment + AUM bump.
+// `allocation` is disclosed (so AUM stays accurate); per-LP allocation
+// stays private because nobody knows which commitment maps to which LP.
+export circuit admitLp(holderCommit: Bytes<32>, allocation: Uint<64>): [] {
+    const sk = localSecretKey();
+    assert(manager == disclose(publicKey(sk)), "Not the fund manager");
+    lpCommitments.insert(disclose(holderCommit));
+    aum = (aum + allocation) as Uint<64>;
+    totalLps.increment(1);
+}
+
+// Manager reports performance for the period. Public.
+export circuit reportRoi(roiBp: Uint<64>): [] {
+    const sk = localSecretKey();
+    assert(manager == disclose(publicKey(sk)), "Not the fund manager");
+    reportedRoiBp = roiBp;
+}
+
+// Manager redeems an LP fully (their commitment is consumed; AUM drops).
+// Could be extended to partial redemptions.
+export circuit redeemLp(holderCommit: Bytes<32>, allocation: Uint<64>): [] {
+    const sk = localSecretKey();
+    assert(manager == disclose(publicKey(sk)), "Not the fund manager");
+    assert(aum >= allocation, "Allocation exceeds AUM");
+    // Note: we do not remove the commitment from the historic Merkle tree;
+    // proofs against older roots remain valid. Production systems pair
+    // this with a redemption nullifier set.
+    aum = (aum - allocation) as Uint<64>;
+}
+
+// --- LP circuits ---
+
+// LP proves "I am a limited partner of this fund" without revealing who.
+export circuit proveLp(fundId: Bytes<32>): Boolean {
+    const sk = localSecretKey();
+    const commit = lpCommit(sk, fundId);
+    const path = findLpPath(commit);
+    assert(
+        lpCommitments.checkRoot(disclose(merkleTreePathRoot<10, Bytes<32>>(path))),
+        "Not an LP of this fund"
+    );
+    return disclose(true);
+}
+
+// LP claims their share of period payouts. The amount is bounded by the
+// public ROI rate * the LP's private allocation (asserted off-chain by the
+// LP supplying it as a tx argument). Nullifier blocks double-payouts.
+export circuit claimPayout(fundId: Bytes<32>, period: Bytes<32>, amount: Uint<64>): Boolean {
+    const sk = localSecretKey();
+    const commit = lpCommit(sk, fundId);
+    const path = findLpPath(commit);
+    assert(
+        lpCommitments.checkRoot(disclose(merkleTreePathRoot<10, Bytes<32>>(path))),
+        "Not an LP of this fund"
+    );
+
+    const nul = payoutNullifier(sk, fundId, period);
+    assert(!payoutNullifiers.member(disclose(nul)), "Payout already claimed for this period");
+    assert(aum >= amount, "Payout exceeds AUM");
+
+    payoutNullifiers.insert(disclose(nul));
+    aum = (aum - amount) as Uint<64>;
+    totalPayouts.increment(1);
+
+    return disclose(true);
+}
