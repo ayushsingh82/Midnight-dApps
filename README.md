@@ -8,11 +8,11 @@ Each dApp is fully independent: its own Compact smart contract, its own React fr
 
 ## The three projects
 
-| dApp | What it does | Why it needs Midnight | Color |
-|------|--------------|-----------------------|-------|
-| **[confidential-real-estate](./confidential-real-estate)** | Tokenized property shares with private ownership and rental-yield claims | Family offices want anonymity on the cap table; regulators still get auditable proofs of ownership | 🟢 emerald |
-| **[confidential-dividend](./confidential-dividend)** | Corporate dividend payouts that hide the shareholder list | Public chains leak insider holdings in real time. Midnight publishes payouts while keeping recipients private | 🟣 violet |
-| **[confidential-asset-management](./confidential-asset-management)** | Fund-manager / LP infrastructure with private allocations + public ROI | LPs stay anonymous; AUM and ROI are publicly verifiable; strategy stays off-chain | 🟡 amber |
+| dApp | What it does | Why it needs Midnight | Article |
+|------|--------------|-----------------------|---------|
+| **[confidential-real-estate](./confidential-real-estate)** | Tokenized property shares with private ownership and rental-yield claims | Family offices want anonymity on the cap table; regulators still get auditable proofs of ownership | [Read on DEV](https://dev.to/ayush_singh_4525768ba4731/-tutorial-building-confidential-tokenized-real-estate-on-midnight-26o9) |
+| **[confidential-dividend](./confidential-dividend)** | Corporate dividend payouts that hide the shareholder list | Public chains leak insider holdings in real time. Midnight publishes payouts while keeping recipients private | [Read on DEV](https://dev.to/ayush_singh_4525768ba4731/-tutorial-confidential-dividend-distribution-on-midnight-15e1) |
+| **[confidential-asset-management](./confidential-asset-management)** | Fund-manager / LP infrastructure with private allocations + public ROI | LPs stay anonymous; AUM and ROI are publicly verifiable; strategy stays off-chain | [Read on DEV](https://dev.to/ayush_singh_4525768ba4731/-tutorial-confidential-asset-management-on-midnight-2hmb) |
 
 Every dApp ships with:
 
@@ -144,15 +144,25 @@ The UIs also intentionally look different so screenshots and demos are distinct:
 
 ---
 
+## Articles
+
+The long-form walkthrough for each dApp lives on DEV.to:
+
+- Real estate → https://dev.to/ayush_singh_4525768ba4731/-tutorial-building-confidential-tokenized-real-estate-on-midnight-26o9
+- Dividend → https://dev.to/ayush_singh_4525768ba4731/-tutorial-confidential-dividend-distribution-on-midnight-15e1
+- Asset management → https://dev.to/ayush_singh_4525768ba4731/-tutorial-confidential-asset-management-on-midnight-2hmb
+
+---
+
 ## Articles + tweets
 
-Each project ships a long-form DEV.to tutorial and tweet copy you can drop into a thread:
+Each project ships a long-form tutorial and tweet copy you can drop into a thread:
 
-| dApp | Tutorial | Tweet |
-|------|----------|-------|
-| Real estate | [tutorial.md](./confidential-real-estate/tutorial.md) | [TWEET.md](./confidential-real-estate/TWEET.md) |
-| Dividend | [tutorial.md](./confidential-dividend/tutorial.md) | [TWEET.md](./confidential-dividend/TWEET.md) |
-| Asset management | [tutorial.md](./confidential-asset-management/tutorial.md) | [TWEET.md](./confidential-asset-management/TWEET.md) |
+| dApp | DEV.to article | Local tutorial | Tweet |
+|------|----------------|----------------|-------|
+| Real estate | [dev.to/…/26o9](https://dev.to/ayush_singh_4525768ba4731/-tutorial-building-confidential-tokenized-real-estate-on-midnight-26o9) | [tutorial.md](./confidential-real-estate/tutorial.md) | [TWEET.md](./confidential-real-estate/TWEET.md) |
+| Dividend | [dev.to/…/15e1](https://dev.to/ayush_singh_4525768ba4731/-tutorial-confidential-dividend-distribution-on-midnight-15e1) | [tutorial.md](./confidential-dividend/tutorial.md) | [TWEET.md](./confidential-dividend/TWEET.md) |
+| Asset management | [dev.to/…/2hmb](https://dev.to/ayush_singh_4525768ba4731/-tutorial-confidential-asset-management-on-midnight-2hmb) | [tutorial.md](./confidential-asset-management/tutorial.md) | [TWEET.md](./confidential-asset-management/TWEET.md) |
 
 The tutorials read independently — each opens with a different real-world problem statement, walks through its own Compact contract, and ends with troubleshooting specific to its domain.
 

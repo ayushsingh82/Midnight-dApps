@@ -26,8 +26,8 @@ Private stays: which wallet is which holder.
 That’s how on-chain cap tables finally become realistic for public companies.
 ```
 
-## Suggested link
+## Link to attach
 
-`https://dev.to/<your-handle>/tutorial-confidential-dividend-distribution-on-midnight`
+DEV.to article: https://dev.to/ayush_singh_4525768ba4731/-tutorial-confidential-dividend-distribution-on-midnight-15e1
 
-Repo: `https://github.com/ayushsingh82/Midnight-dApps`
+Repo: https://github.com/ayushsingh82/Midnight-dApps

@@ -23,8 +23,8 @@ The unlock: aggregate AUM and ROI are public (auditors love it), but per-LP allo
 This is the on-chain fund product TradFi never thought possible.
 ```
 
-## Suggested link
+## Link to attach
 
-`https://dev.to/<your-handle>/tutorial-confidential-asset-management-on-midnight`
+DEV.to article: https://dev.to/ayush_singh_4525768ba4731/-tutorial-confidential-asset-management-on-midnight-2hmb
 
-Repo: `https://github.com/ayushsingh82/Midnight-dApps`
+Repo: https://github.com/ayushsingh82/Midnight-dApps

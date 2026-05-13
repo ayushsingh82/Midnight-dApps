@@ -2,7 +2,11 @@
 
 A Midnight Network dApp for **private dividend distribution**: corporate issuers pay dividends on-chain while shareholder identities stay hidden. Auditors can still verify in zero-knowledge that every payout went to a legitimate holder and that no double-claims occurred.
 
-📁 Full source code in this folder. Article: [tutorial.md](./tutorial.md). Tweet: [TWEET.md](./TWEET.md).
+📁 Full source code in this folder.
+
+📖 **DEV.to article:** https://dev.to/ayush_singh_4525768ba4731/-tutorial-confidential-dividend-distribution-on-midnight-15e1
+
+📄 Local copy: [tutorial.md](./tutorial.md) · Tweet copy: [TWEET.md](./TWEET.md)
 
 ## Use case
 

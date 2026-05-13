@@ -25,8 +25,8 @@ Chain learns: "12 properties, 318 holders, $4.2M pool" — never who owns what. 
 GitHub: github.com/ayushsingh82/Midnight-dApps
 ```
 
-## Suggested link to attach
+## Link to attach
 
-`https://dev.to/<your-handle>/tutorial-building-confidential-tokenized-real-estate-on-midnight`
+DEV.to article: https://dev.to/ayush_singh_4525768ba4731/-tutorial-building-confidential-tokenized-real-estate-on-midnight-26o9
 
-Replace once the article is published. The repository URL is `https://github.com/ayushsingh82/Midnight-dApps`.
+Repo: https://github.com/ayushsingh82/Midnight-dApps

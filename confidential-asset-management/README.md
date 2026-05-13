@@ -2,7 +2,11 @@
 
 A Midnight Network dApp where **investors allocate capital to fund managers without public exposure of allocations or strategy**. Funds get on-chain auditability of AUM and ROI; LPs stay anonymous; the GP's strategy stays off-chain and private.
 
-📁 Source code in this folder. Article: [tutorial.md](./tutorial.md). Tweet: [TWEET.md](./TWEET.md).
+📁 Source code in this folder.
+
+📖 **DEV.to article:** https://dev.to/ayush_singh_4525768ba4731/-tutorial-confidential-asset-management-on-midnight-2hmb
+
+📄 Local copy: [tutorial.md](./tutorial.md) · Tweet copy: [TWEET.md](./TWEET.md)
 
 ## Use case
 

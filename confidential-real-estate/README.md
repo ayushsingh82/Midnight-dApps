@@ -2,7 +2,11 @@
 
 A Midnight Network dApp for **tokenized property shares with private ownership and rental-yield data**. Investors stay anonymous while regulators receive auditable ZK proofs of ownership and compliance.
 
-📁 Full source code is here. Article: [tutorial.md](./tutorial.md). Tweet: [TWEET.md](./TWEET.md).
+📁 Full source code is here.
+
+📖 **DEV.to article:** https://dev.to/ayush_singh_4525768ba4731/-tutorial-building-confidential-tokenized-real-estate-on-midnight-26o9
+
+📄 Local copy: [tutorial.md](./tutorial.md) · Tweet copy: [TWEET.md](./TWEET.md)
 
 ## Use case
 
