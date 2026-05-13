@@ -25,6 +25,8 @@ function CopyIcon({ className }: { className?: string }) {
   );
 }
 
+const SAMPLE_BARS = [40, 55, 48, 62, 58, 75, 70, 82, 78, 88, 92, 100];
+
 export function HomePage() {
   const { isConnected, addresses } = useWalletStore();
   const lpSk = useIdentity('lp');
@@ -95,76 +97,112 @@ export function HomePage() {
     );
   }
 
-  const ready = !!lpSk;
+  const aum = stats?.aum.toString() ?? '0';
+  const roiBp = stats?.roi ? Number(stats.roi) : 0;
+  const roiPct = (roiBp / 100).toFixed(2);
 
   return (
     <div className="space-y-10 pt-4 pb-12">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-[28px] font-semibold tracking-tight">Fund Dashboard</h1>
-          <p className="text-[14px] text-white/30 mt-1.5">Privacy-preserving capital allocation and payouts.</p>
-        </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/[0.1] border border-amber-500/[0.25] rounded-lg">
-          <div className="w-1.5 h-1.5 rounded-full bg-amber-300" />
-          <span className="text-[11px] uppercase tracking-widest text-amber-200/80">Connected</span>
-        </div>
-      </div>
-
-      {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Stat label="LPs" value={stats.lps.toString()} />
-          <Stat label="AUM" value={stats.aum.toString()} />
-          <Stat label="Payouts" value={stats.payouts.toString()} />
-          <Stat label="ROI (bp)" value={stats.roi.toString()} />
-        </div>
-      )}
-
-      <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6 space-y-5">
-        <div className="flex items-start justify-between">
+      {/* FUND ADMIN HERO — big AUM number + ROI chart-like bars */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-amber-500/[0.1] via-amber-500/[0.04] to-transparent border border-amber-500/[0.18] rounded-3xl p-8">
+        <div className="absolute -bottom-32 -left-20 w-80 h-80 bg-amber-400/[0.1] blur-3xl rounded-full" />
+        <div className="relative grid grid-cols-1 md:grid-cols-2 gap-8">
           <div>
-            <h2 className="text-[16px] font-medium text-white">LP commitment</h2>
-            <p className="text-[12px] text-white/30 mt-1 max-w-md">
-              Hash of your wallet + fund ID. Hand it to the fund manager off-chain — the manager admits you into the LP Merkle tree without seeing your wallet.
-            </p>
-          </div>
-          <div className={`text-[10px] uppercase tracking-widest px-2 py-1 rounded ${ready ? 'bg-amber-500/15 text-amber-200/80' : 'bg-white/[0.04] text-white/30'}`}>
-            {ready ? 'Ready' : 'Deriving…'}
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-[10px] uppercase tracking-widest text-white/30 mb-2">Fund ID</label>
-          <input
-            type="text"
-            value={fundId}
-            onChange={(e) => setFundId(e.target.value)}
-            className="w-full px-3.5 py-2.5 bg-white/[0.04] border border-white/[0.08] rounded-xl text-white text-[13px] focus:outline-none focus:border-white/20"
-          />
-        </div>
-
-        <div>
-          <label className="block text-[10px] uppercase tracking-widest text-white/30 mb-2">Commitment (hex)</label>
-          <div className="flex items-stretch gap-2">
-            <div className="flex-1 px-3.5 py-2.5 bg-white/[0.02] border border-white/[0.05] rounded-xl min-h-[42px] flex items-center">
-              <p className="text-[11px] font-mono text-white/40 break-all leading-relaxed">{commitHex || '...'}</p>
+            <div className="flex items-center gap-2 mb-3">
+              <ChartIcon className="w-5 h-5 text-amber-300/80" />
+              <p className="text-[11px] uppercase tracking-[0.15em] text-amber-200/70">Fund Admin</p>
             </div>
-            <button
-              onClick={copy}
-              disabled={!commitHex}
-              className="px-4 bg-white/[0.06] hover:bg-white/[0.1] disabled:opacity-20 border border-white/[0.08] text-white/70 text-[12px] font-medium rounded-xl flex items-center gap-2"
-            >
-              <CopyIcon className="w-3.5 h-3.5" />
-              {copied ? 'Copied' : 'Copy'}
-            </button>
+            <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">Assets Under Management</p>
+            <p className="text-[56px] font-semibold tracking-tighter leading-none tabular-nums text-white">
+              {Number(aum).toLocaleString()}
+            </p>
+            <div className="flex items-center gap-3 mt-4">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/[0.15] border border-amber-500/[0.3] rounded-lg">
+                <span className="text-[11px] text-amber-200">+{roiPct}%</span>
+                <span className="text-[10px] text-amber-300/60">period ROI</span>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-1 bg-white/[0.04] border border-white/[0.08] rounded-lg">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <span className="text-[10px] uppercase tracking-widest text-white/60">Live · Preprod</span>
+              </div>
+            </div>
           </div>
+
+          {/* Bar chart preview */}
+          <div className="flex items-end gap-1.5 h-32">
+            {SAMPLE_BARS.map((h, i) => (
+              <div
+                key={i}
+                style={{ height: `${h}%` }}
+                className={`flex-1 rounded-t ${i === SAMPLE_BARS.length - 1 ? 'bg-amber-300' : 'bg-amber-400/30'}`}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="relative mt-6 pt-6 border-t border-white/[0.06] grid grid-cols-3 gap-4">
+          <BigStat label="LPs" value={stats?.lps.toString() ?? '—'} />
+          <BigStat label="Payouts" value={stats?.payouts.toString() ?? '—'} />
+          <BigStat label="ROI (bp)" value={stats?.roi.toString() ?? '—'} accent />
         </div>
       </div>
 
+      {/* FUND LIST + COMMITMENT — side-by-side panel */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+        <div className="lg:col-span-2 bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5">
+          <p className="text-[10px] uppercase tracking-widest text-white/30 mb-3">Active funds</p>
+          <div className="space-y-2">
+            {['GLOBAL-MACRO-I', 'EM-CREDIT-II', 'DELTA-NEUTRAL-A'].map((f) => (
+              <button
+                key={f}
+                onClick={() => setFundId(f)}
+                className={`w-full px-3 py-2.5 rounded-lg text-left transition-colors ${
+                  fundId === f ? 'bg-amber-500/[0.12] border border-amber-500/[0.3]' : 'bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.04]'
+                }`}
+              >
+                <p className={`text-[12px] font-mono ${fundId === f ? 'text-amber-200' : 'text-white/60'}`}>{f}</p>
+                <p className="text-[10px] text-white/30 mt-0.5">3yr · open · Preprod</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="lg:col-span-3 bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h2 className="text-[14px] font-medium text-white">LP commitment</h2>
+              <p className="text-[11px] text-white/30 mt-1">For fund <span className="font-mono text-amber-200/80">{fundId}</span>. Hand to the GP off-chain.</p>
+            </div>
+            <div className={`text-[10px] uppercase tracking-widest px-2 py-1 rounded ${lpSk ? 'bg-amber-500/[0.15] text-amber-200' : 'bg-white/[0.04] text-white/30'}`}>
+              {lpSk ? 'Ready' : 'Deriving'}
+            </div>
+          </div>
+          <div className="bg-black/40 border border-white/[0.05] rounded-xl px-4 py-3 mb-3">
+            <p className="text-[12px] font-mono text-amber-200/80 break-all leading-relaxed">{commitHex || '...'}</p>
+          </div>
+          <button
+            onClick={copy}
+            disabled={!commitHex}
+            className="w-full py-2.5 bg-amber-400 hover:bg-amber-300 disabled:opacity-20 text-black text-[12px] font-medium rounded-xl flex items-center justify-center gap-2"
+          >
+            <CopyIcon className="w-3.5 h-3.5" />
+            {copied ? 'Copied to clipboard' : 'Copy commitment'}
+          </button>
+        </div>
+      </div>
+
+      {/* CONTRACT INFO */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <InlineStat label="Contract" value={contractAddress ? contractAddress.slice(0, 14) + '…' : 'Not deployed'} muted={!contractAddress} />
+        <InlineStat label="Wallet" value={addresses?.unshieldedAddress.slice(0, 14) + '…' || '—'} />
+      </div>
+
+      {/* ACTIONS */}
       <div>
-        <h2 className="text-[14px] font-medium text-white/70 mb-4">Actions</h2>
+        <h2 className="text-[14px] font-medium text-white/70 mb-4">Fund actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <Action to="/deploy" title="Deploy" desc="GP launches the fund" emoji="🏦" />
-          <Action to="/admit" title="Admit LP" desc="GP admits an LP" emoji="🤝" />
+          <Action to="/admit" title="Admit LP" desc="GP admits a partner" emoji="🤝" />
           <Action to="/report" title="Report ROI" desc="GP publishes period ROI" emoji="📊" />
           <Action to="/payout" title="Payout" desc="LP claims period payout" emoji="💰" />
         </div>
@@ -173,18 +211,27 @@ export function HomePage() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function BigStat({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
   return (
-    <div className="bg-white/[0.02] border border-white/[0.05] rounded-2xl p-4">
-      <p className="text-[10px] uppercase tracking-widest text-white/30 mb-1.5">{label}</p>
-      <p className="text-[20px] font-semibold text-white truncate">{value}</p>
+    <div>
+      <p className="text-[10px] uppercase tracking-[0.15em] text-white/30 mb-1.5">{label}</p>
+      <p className={`text-[24px] font-semibold tracking-tight tabular-nums ${accent ? 'text-amber-200' : 'text-white'}`}>{value}</p>
+    </div>
+  );
+}
+
+function InlineStat({ label, value, muted = false }: { label: string; value: string; muted?: boolean }) {
+  return (
+    <div className="flex items-center justify-between bg-white/[0.02] border border-white/[0.05] rounded-xl px-4 py-3">
+      <span className="text-[11px] uppercase tracking-widest text-white/30">{label}</span>
+      <span className={`text-[12px] font-mono ${muted ? 'text-white/30' : 'text-white/80'}`}>{value}</span>
     </div>
   );
 }
 
 function Action({ to, title, desc, emoji }: { to: string; title: string; desc: string; emoji: string }) {
   return (
-    <Link to={to} className="group relative flex flex-col p-5 bg-white/[0.02] hover:bg-white/[0.04] border border-white/[0.05] hover:border-white/[0.1] rounded-2xl transition-all">
+    <Link to={to} className="group relative flex flex-col p-5 bg-white/[0.02] hover:bg-white/[0.04] border border-white/[0.05] hover:border-amber-500/[0.2] rounded-2xl transition-all">
       <div className="text-[22px] mb-3">{emoji}</div>
       <h3 className="text-[14px] font-medium text-white/85 mb-1">{title}</h3>
       <p className="text-[12px] text-white/35 leading-relaxed">{desc}</p>
