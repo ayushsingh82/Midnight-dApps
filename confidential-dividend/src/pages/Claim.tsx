@@ -1,29 +1,31 @@
 import { useState } from 'react';
 import { useWalletStore } from '../hooks/useWallet';
-import { deriveKey, deriveKeyFromPassword, padTo32Bytes } from '../lib/utils';
+import { deriveRoleKey } from '../hooks/useIdentity';
+import { padTo32Bytes } from '../lib/utils';
 import { PRIVATE_STATE_ID } from '../hooks/wallet/wallet.constants';
 import { buildProviders, loadCompiledContract } from '../lib/midnight';
 import { createDividendPrivateState } from './witnesses';
+import { StatusPanel, StepHeader, type TxStatus } from '../components/ui/StatusPanel';
 
 export function ClaimPage() {
-  const { isConnected, connectedApi, addresses, userPassword } = useWalletStore();
+  const { connectedApi, addresses } = useWalletStore();
   const [classId, setClassId] = useState('COMMON-A');
   const [cycle, setCycle] = useState('2026-Q2');
-  const [status, setStatus] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<TxStatus>('idle');
+  const [message, setMessage] = useState('');
 
-  const call = async (mode: 'prove' | 'claim') => {
-    if (!connectedApi || !addresses || !userPassword) return;
+  const run = async (mode: 'prove' | 'claim') => {
+    if (!connectedApi || !addresses) return;
     const contractAddress = localStorage.getItem('div_contract');
     if (!contractAddress) {
-      setStatus('No deployed contract found.');
+      setStatus('error');
+      setMessage('No deployed contract found.');
       return;
     }
-    setBusy(true);
-    setStatus('Deriving shareholder identity...');
+    setStatus('busy');
+    setMessage('Deriving shareholder identity…');
     try {
-      const master = await deriveKeyFromPassword(userPassword, addresses.shieldedCoinPublicKey);
-      const shareholderSk = await deriveKey(master, 'dividend:shareholder');
+      const shareholderSk = await deriveRoleKey(addresses.shieldedCoinPublicKey, 'shareholder');
 
       const providers = await buildProviders({
         connectedApi,
@@ -44,49 +46,56 @@ export function ClaimPage() {
       const txInterface: any = createCircuitCallTxInterface(providers as any, finalContract as any, contractAddress, PRIVATE_STATE_ID);
 
       if (mode === 'prove') {
-        setStatus('Generating eligibility proof...');
+        setMessage('Generating eligibility proof…');
         await txInterface.proveEligibility(padTo32Bytes(classId));
-        setStatus('Eligibility proven without revealing identity.');
+        setStatus('success');
+        setMessage('Eligibility proven without revealing identity.');
       } else {
-        setStatus('Claiming dividend...');
+        setMessage('Claiming dividend…');
         await txInterface.claimDividend(padTo32Bytes(classId), padTo32Bytes(cycle));
-        setStatus(`Dividend claimed for cycle ${cycle}. Nullifier locked.`);
+        setStatus('success');
+        setMessage(`Dividend claimed for cycle ${cycle}. Nullifier locked.`);
       }
     } catch (e: any) {
       console.error(e);
-      setStatus(`Error: ${e?.message || String(e)}`);
-    } finally {
-      setBusy(false);
+      setStatus('error');
+      setMessage(e?.message || String(e));
     }
   };
 
-  if (!isConnected) return <div className="text-center py-20 text-white/40">Connect a wallet.</div>;
-  if (!userPassword) return <div className="text-center py-20 text-white/40">Unlock vault on Home.</div>;
-
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-[24px] font-semibold tracking-tight">Claim Dividend</h1>
-        <p className="text-[13px] text-white/30 mt-1">
-          Prove you're a shareholder, or claim the current cycle's declared dividend. The nullifier prevents double-claims.
-        </p>
-      </div>
-      <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6 space-y-4">
+    <div className="max-w-2xl mx-auto space-y-8">
+      <StepHeader
+        step={4}
+        total={4}
+        title="Claim dividend"
+        description="Prove you're a shareholder, or claim the current cycle's declared dividend. The nullifier prevents double-claims."
+      />
+
+      <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6 space-y-5">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field label="Share class" value={classId} onChange={setClassId} />
           <Field label="Cycle" value={cycle} onChange={setCycle} />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <button onClick={() => call('prove')} disabled={busy} className="py-3 bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.08] text-white text-[13px] font-medium rounded-xl disabled:opacity-30">
-            {busy ? '…' : 'Prove Eligibility'}
+          <button
+            onClick={() => run('prove')}
+            disabled={status === 'busy'}
+            className="py-3 bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.1] text-white text-[13px] font-medium rounded-xl disabled:opacity-30"
+          >
+            {status === 'busy' ? '…' : 'Prove eligibility'}
           </button>
-          <button onClick={() => call('claim')} disabled={busy} className="py-3 bg-violet-400 hover:bg-violet-300 text-black text-[13px] font-medium rounded-xl disabled:opacity-30">
-            {busy ? '…' : 'Claim Dividend'}
+          <button
+            onClick={() => run('claim')}
+            disabled={status === 'busy'}
+            className="py-3 bg-violet-400 hover:bg-violet-300 disabled:opacity-30 text-black text-[13px] font-medium rounded-xl"
+          >
+            {status === 'busy' ? '…' : 'Claim dividend'}
           </button>
         </div>
 
-        {status && <p className="text-[12px] text-white/50 font-mono">{status}</p>}
+        <StatusPanel status={status} message={message} />
       </div>
     </div>
   );

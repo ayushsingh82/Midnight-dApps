@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
+import { RequireWallet } from './components/RequireWallet';
 import { HomePage } from './pages/Home';
 import { DeployPage } from './pages/Deploy';
 import { IssuePage } from './pages/Issue';
@@ -39,9 +40,9 @@ function App() {
       <Layout>
         <Routes>
           <Route path="/" element={<HomePage />} />
-          <Route path="/deploy" element={<DeployPage />} />
-          <Route path="/issue" element={<IssuePage />} />
-          <Route path="/claim" element={<ClaimPage />} />
+          <Route path="/deploy" element={<RequireWallet><DeployPage /></RequireWallet>} />
+          <Route path="/issue" element={<RequireWallet><IssuePage /></RequireWallet>} />
+          <Route path="/claim" element={<RequireWallet><ClaimPage /></RequireWallet>} />
         </Routes>
       </Layout>
     </BrowserRouter>

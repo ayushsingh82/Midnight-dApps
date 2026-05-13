@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from './Button';
 import { WalletSelectModal } from './WalletSelectModal';
 import { useWalletStore, getCompatibleWallets } from '../../hooks/useWallet';
@@ -36,9 +36,22 @@ function WalletIcon({ className }: { className?: string }) {
 }
 
 export function ConnectButton() {
-  const { isConnected, isConnecting, connect, setWallet, addresses, setShowAccountModal } = useWalletStore();
-  const [wallets] = useState<InitialAPI[]>(() => getCompatibleWallets());
+  const { isConnected, isConnecting, connect, setWallet, addresses, setShowAccountModal, error } = useWalletStore();
+  const [wallets, setWallets] = useState<InitialAPI[]>(() => getCompatibleWallets());
   const [showModal, setShowModal] = useState(false);
+
+  // Re-scan for wallets in case the extension injects window.midnight after
+  // the initial render. We poll briefly and then stop.
+  useEffect(() => {
+    let attempts = 0;
+    const id = window.setInterval(() => {
+      const found = getCompatibleWallets();
+      setWallets((prev) => (found.length !== prev.length ? found : prev));
+      attempts += 1;
+      if (attempts >= 10 || found.length > 0) window.clearInterval(id);
+    }, 300);
+    return () => window.clearInterval(id);
+  }, []);
 
   const handleConnect = async (selectedWallet: InitialAPI) => {
     setWallet(selectedWallet);
@@ -49,7 +62,9 @@ export function ConnectButton() {
   const handleClick = () => {
     if (isConnected) setShowAccountModal(true);
     else if (wallets.length === 1) handleConnect(wallets[0]);
-    else setShowModal(true);
+    else if (wallets.length === 0) {
+      window.open('https://www.lace.io/', '_blank');
+    } else setShowModal(true);
   };
 
   let buttonContent;
@@ -68,7 +83,12 @@ export function ConnectButton() {
       </>
     );
   } else if (wallets.length === 0) {
-    buttonContent = 'No Wallet Found';
+    buttonContent = (
+      <>
+        <WalletIcon className="w-4 h-4" />
+        <span>Install Wallet</span>
+      </>
+    );
   } else {
     buttonContent = (
       <>
@@ -83,11 +103,17 @@ export function ConnectButton() {
       <Button
         variant={isConnected ? 'secondary' : 'primary'}
         onClick={handleClick}
-        disabled={isConnecting || (wallets.length === 0 && !isConnected)}
+        disabled={isConnecting}
         className="inline-flex items-center gap-2"
+        title={error || undefined}
       >
         {buttonContent}
       </Button>
+      {error && !isConnecting && (
+        <span className="ml-3 text-[11px] text-red-400/80 max-w-xs truncate" title={error}>
+          {error}
+        </span>
+      )}
       <WalletSelectModal isOpen={showModal} onClose={() => setShowModal(false)} wallets={wallets} onSelect={handleConnect} connecting={isConnecting} />
     </>
   );

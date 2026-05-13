@@ -1,31 +1,34 @@
 import { useState } from 'react';
 import { useWalletStore } from '../hooks/useWallet';
-import { deriveKey, deriveKeyFromPassword, padTo32Bytes } from '../lib/utils';
+import { deriveRoleKey } from '../hooks/useIdentity';
+import { padTo32Bytes } from '../lib/utils';
 import { CONTRACT_PATH, INDEXER_HTTP, INDEXER_WS, PROOF_SERVER, PRIVATE_STATE_ID } from '../hooks/wallet/wallet.constants';
 import { createRealEstatePrivateState, witnesses } from './witnesses';
+import { StatusPanel, StepHeader, type TxStatus } from '../components/ui/StatusPanel';
 
 export function ClaimPage() {
-  const { isConnected, connectedApi, addresses, userPassword } = useWalletStore();
+  const { connectedApi, addresses } = useWalletStore();
   const [propertyId, setPropertyId] = useState('LDN-COVENT-001');
   const [cycle, setCycle] = useState('2026-Q2');
   const [amount, setAmount] = useState('1000');
-  const [status, setStatus] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<TxStatus>('idle');
+  const [message, setMessage] = useState('');
 
-  const claim = async (mode: 'prove' | 'yield') => {
-    if (!connectedApi || !addresses || !userPassword) return;
+  const run = async (mode: 'prove' | 'yield') => {
+    if (!connectedApi || !addresses) return;
     const contractAddress = localStorage.getItem('re_contract');
     if (!contractAddress) {
-      setStatus('No deployed contract found.');
+      setStatus('error');
+      setMessage('No deployed contract found.');
       return;
     }
-    setBusy(true);
-    setStatus('Deriving investor identity...');
+    setStatus('busy');
+    setMessage('Deriving investor identity…');
     try {
-      const master = await deriveKeyFromPassword(userPassword, addresses.shieldedCoinPublicKey);
-      const investorSk = await deriveKey(master, 'realestate:investor');
+      const investorSk = await deriveRoleKey(addresses.shieldedCoinPublicKey, 'investor');
 
-      const contractModule: any = await import(/* @vite-ignore */ `${CONTRACT_PATH}/managed/realestate/contract/index.js`);
+      const contractPath = CONTRACT_PATH + '/managed/realestate' + '/contract/index.js';
+      const contractModule: any = await import(/* @vite-ignore */ contractPath);
       const { indexerPublicDataProvider } = await import('@midnight-ntwrk/midnight-js-indexer-public-data-provider');
       const { levelPrivateStateProvider } = await import('@midnight-ntwrk/midnight-js-level-private-state-provider');
       const { FetchZkConfigProvider } = await import('@midnight-ntwrk/midnight-js-fetch-zk-config-provider');
@@ -33,6 +36,9 @@ export function ClaimPage() {
       const { findDeployedContract, createCircuitCallTxInterface } = await import('@midnight-ntwrk/midnight-js-contracts');
       const { CompiledContract } = await import('@midnight-ntwrk/compact-js');
       const { Transaction } = await import('@midnight-ntwrk/ledger-v8');
+
+      const toHex = (b: Uint8Array) => Array.from(b).map((x) => x.toString(16).padStart(2, '0')).join('');
+      const fromHex = (h: string) => new Uint8Array((h.match(/.{2}/g) || []).map((b) => parseInt(b, 16)));
 
       const zkConfig = new FetchZkConfigProvider(`${CONTRACT_PATH}/managed/realestate/keys`, fetch.bind(window));
       const providers: any = {
@@ -44,15 +50,12 @@ export function ClaimPage() {
           getCoinPublicKey: () => addresses.shieldedCoinPublicKey,
           getEncryptionPublicKey: () => addresses.shieldedEncryptionPublicKey,
           balanceTx: async (tx: any) => {
-            const toHex = (b: Uint8Array) => Array.from(b).map((x) => x.toString(16).padStart(2, '0')).join('');
-            const fromHex = (h: string) => new Uint8Array((h.match(/.{2}/g) || []).map((b) => parseInt(b, 16)));
             const received = await connectedApi.balanceUnsealedTransaction(toHex(tx.serialize()));
             return Transaction.deserialize('signature', 'proof', 'binding', fromHex(received.tx));
           },
         },
         midnightProvider: {
           submitTx: async (tx: any) => {
-            const toHex = (b: Uint8Array) => Array.from(b).map((x) => x.toString(16).padStart(2, '0')).join('');
             await connectedApi.submitTransaction(toHex(tx.serialize()));
             return tx.identifiers()?.[0] ?? '';
           },
@@ -63,45 +66,43 @@ export function ClaimPage() {
       const ccW = CompiledContract.withWitnesses(cc, witnesses as any);
       const finalContract = CompiledContract.withCompiledFileAssets(ccW, `${CONTRACT_PATH}/managed/realestate`);
 
-      await findDeployedContract(providers, {
+      await findDeployedContract(providers as never, {
         contractAddress,
-        compiledContract: finalContract as any,
+        compiledContract: finalContract as never,
         privateStateId: PRIVATE_STATE_ID,
         initialPrivateState: createRealEstatePrivateState(investorSk),
       });
 
-      const txInterface: any = createCircuitCallTxInterface(providers, finalContract as any, contractAddress, PRIVATE_STATE_ID);
+      const txInterface: any = createCircuitCallTxInterface(providers as never, finalContract as never, contractAddress, PRIVATE_STATE_ID);
 
       if (mode === 'prove') {
-        setStatus('Generating ZK ownership proof...');
+        setMessage('Generating ZK ownership proof…');
         await txInterface.proveOwnership(padTo32Bytes(propertyId));
-        setStatus('Ownership proven. The chain knows nothing about you except that someone valid called.');
+        setStatus('success');
+        setMessage('Ownership proven. The chain learns nothing about you except that a valid owner acted.');
       } else {
-        setStatus('Generating yield-claim proof...');
+        setMessage('Generating yield-claim proof…');
         await txInterface.claimYield(padTo32Bytes(propertyId), padTo32Bytes(cycle), BigInt(amount));
-        setStatus(`Yield of ${amount} claimed for cycle ${cycle}. Nullifier prevents double-claim.`);
+        setStatus('success');
+        setMessage(`Yield of ${amount} claimed for cycle ${cycle}. Nullifier prevents a second claim this cycle.`);
       }
     } catch (e: any) {
       console.error(e);
-      setStatus(`Error: ${e?.message || String(e)}`);
-    } finally {
-      setBusy(false);
+      setStatus('error');
+      setMessage(e?.message || String(e));
     }
   };
 
-  if (!isConnected) return <div className="text-center py-20 text-white/40">Connect a wallet.</div>;
-  if (!userPassword) return <div className="text-center py-20 text-white/40">Unlock vault on Home.</div>;
-
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-[24px] font-semibold tracking-tight">Claim Yield</h1>
-        <p className="text-[13px] text-white/30 mt-1">
-          Prove ownership or claim a rental cycle. Both run on the same ownership Merkle path — the chain learns that <em>some</em> owner acted, never which one.
-        </p>
-      </div>
+    <div className="max-w-2xl mx-auto space-y-8">
+      <StepHeader
+        step={3}
+        total={3}
+        title="Prove ownership or claim yield"
+        description="Both calls run on the same ownership Merkle path. The chain learns some owner acted — never which one."
+      />
 
-      <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6 space-y-4">
+      <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6 space-y-5">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <Field label="Property" value={propertyId} onChange={setPropertyId} />
           <Field label="Cycle" value={cycle} onChange={setCycle} />
@@ -109,15 +110,23 @@ export function ClaimPage() {
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <button onClick={() => claim('prove')} disabled={busy} className="py-3 bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.08] text-white text-[13px] font-medium rounded-xl disabled:opacity-30">
-            {busy ? '…' : 'Prove Ownership'}
+          <button
+            onClick={() => run('prove')}
+            disabled={status === 'busy'}
+            className="py-3 bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.1] text-white text-[13px] font-medium rounded-xl transition-colors disabled:opacity-30"
+          >
+            {status === 'busy' ? '…' : 'Prove ownership'}
           </button>
-          <button onClick={() => claim('yield')} disabled={busy} className="py-3 bg-emerald-400 hover:bg-emerald-300 text-black text-[13px] font-medium rounded-xl disabled:opacity-30">
-            {busy ? '…' : 'Claim Yield'}
+          <button
+            onClick={() => run('yield')}
+            disabled={status === 'busy'}
+            className="py-3 bg-emerald-400 hover:bg-emerald-300 disabled:opacity-30 text-black text-[13px] font-medium rounded-xl transition-colors"
+          >
+            {status === 'busy' ? '…' : 'Claim yield'}
           </button>
         </div>
 
-        {status && <p className="text-[12px] text-white/50 font-mono">{status}</p>}
+        <StatusPanel status={status} message={message} />
       </div>
     </div>
   );
@@ -130,7 +139,7 @@ function Field({ label, value, onChange }: { label: string; value: string; onCha
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-white text-[13px] focus:outline-none focus:border-white/20"
+        className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-white text-[13px] focus:outline-none focus:border-white/20 transition-colors"
       />
     </div>
   );

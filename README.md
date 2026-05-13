@@ -43,6 +43,14 @@ docker run -p 6300:6300 midnightntwrk/proof-server:8.0.3 midnight-proof-server -
 npm run dev
 ```
 
+## Documentation
+
+- [README.md](./README.md) — this file
+- [CONTRIBUTING.md](./CONTRIBUTING.md) — how to add a new dApp or improve existing ones
+- [Methodology.md](./Methodology.md) — how the dApps were built, who wrote what, AI vs human roles
+- [Codes.md](./Codes.md) — Midnight ledger error codes + per-dApp assert messages
+- [Style.md](./Style.md) — voice, tone, code-snippet, and tweet conventions
+
 ## License
 
-MIT
+MIT — see [LICENSE](./LICENSE).

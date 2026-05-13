@@ -42,10 +42,12 @@ Midnight balances all three. The on-chain ledger only stores **commitments** in 
 
 ```bash
 npm install
-npx compact compile contracts/Contract.compact src/contracts
+npx compact compile contracts/Contract.compact src/contracts/managed/realestate
 docker run -p 6300:6300 midnightntwrk/proof-server:8.0.3 midnight-proof-server -v
 npm run dev
 ```
+
+> The compile command writes the contract artefacts to `src/contracts/managed/realestate/{contract,keys,zkir,compiler}`. The frontend imports the contract from this exact path.
 
 The frontend runs on `http://localhost:5173`. Make sure the Lace or 1AM extension is installed and the wallet is on **Preprod**.
 

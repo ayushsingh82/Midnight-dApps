@@ -44,10 +44,12 @@ Midnight breaks the trade-off. The on-chain ledger:
 
 ```bash
 npm install
-npx compact compile contracts/Contract.compact src/contracts
+npx compact compile contracts/Contract.compact src/contracts/managed/dividend
 docker run -p 6300:6300 midnightntwrk/proof-server:8.0.3 midnight-proof-server -v
 npm run dev
 ```
+
+> The compile command writes the contract artefacts to `src/contracts/managed/dividend/{contract,keys,zkir,compiler}`. The frontend imports the contract from this exact path.
 
 ## Wallets
 

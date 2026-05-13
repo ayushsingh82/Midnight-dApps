@@ -46,7 +46,8 @@ export async function buildProviders(opts: {
 
 export async function loadCompiledContract() {
   const { CompiledContract } = await import('@midnight-ntwrk/compact-js');
-  const contractModule: any = await import(/* @vite-ignore */ `${CONTRACT_PATH}/managed/dividend/contract/index.js`);
+  const contractPath = CONTRACT_PATH + '/managed/dividend' + '/contract/index.js';
+  const contractModule: any = await import(/* @vite-ignore */ contractPath);
   const { witnesses } = await import('../pages/witnesses');
   const cc = CompiledContract.make('dividend', contractModule.Contract);
   const ccW = CompiledContract.withWitnesses(cc, witnesses as any);

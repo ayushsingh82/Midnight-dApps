@@ -50,10 +50,12 @@ Everything else — who is in the fund, how much they allocated, what trades the
 
 ```bash
 npm install
-npx compact compile contracts/Contract.compact src/contracts
+npx compact compile contracts/Contract.compact src/contracts/managed/fund
 docker run -p 6300:6300 midnightntwrk/proof-server:8.0.3 midnight-proof-server -v
 npm run dev
 ```
+
+> The compile command writes the contract artefacts to `src/contracts/managed/fund/{contract,keys,zkir,compiler}`. The frontend imports the contract from this exact path.
 
 ## Wallets
 
